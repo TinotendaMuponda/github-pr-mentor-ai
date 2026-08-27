@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String          @id @default(cuid())
+  githubId       String          @unique
+  login          String          @unique
+  name           String?
+  email          String?
+  avatarUrl      String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+  githubAccounts GitHubAccount[]
+  explanations   Explanation[]
+}
+
+model GitHubAccount {
+  id                    String    @id @default(cuid())
+  userId                String
+  providerAccountId     String    @unique
+  accessTokenCiphertext String?
+  tokenScope            String?
+  tokenType             String?
+  expiresAt             DateTime? @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(6)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Repository {
+  id            String        @id @default(cuid())
+  githubId      String        @unique
+  owner         String
+  name          String
+  nameWithOwner String        @unique
+  url           String
+  isPrivate     Boolean       @default(false)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
+  pullRequests  PullRequest[]
+}
+
+model PullRequest {
+  id              String               @id @default(cuid())
+  githubId        String               @unique
+  repositoryId    String
+  number          Int
+  title           String
+  url             String
+  authorLogin     String?
+  state           String
+  baseRefName     String
+  headRefName     String
+  mergedAt        DateTime?            @db.Timestamptz(6)
+  githubCreatedAt DateTime?            @db.Timestamptz(6)
+  githubUpdatedAt DateTime?            @db.Timestamptz(6)
+  syncedAt        DateTime?            @db.Timestamptz(6)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @db.Timestamptz(6)
+  repository      Repository           @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  comments        PullRequestComment[]
+  checkRuns       CheckRun[]
+  commits         Commit[]
+  conflicts       MergeConflict[]
+  explanations    Explanation[]
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId])
+  @@index([state])
+}
+
+model PullRequestComment {
+  id              String      @id @default(cuid())
+  githubId        String      @unique
+  pullRequestId   String
+  authorLogin     String?
+  body            String
+  path            String?
+  line            Int?
+  url             String?
+  githubCreatedAt DateTime?   @db.Timestamptz(6)
+  githubUpdatedAt DateTime?   @db.Timestamptz(6)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(6)
+  pullRequest     PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@index([pullRequestId])
+  @@index([path])
+}
+
+model CheckRun {
+  id            String      @id @default(cuid())
+  githubId      String?     @unique
+  pullRequestId String
+  name          String
+  status        String
+  conclusion    String?
+  detailsUrl    String?
+  summary       String?
+  startedAt     DateTime?   @db.Timestamptz(6)
+  completedAt   DateTime?   @db.Timestamptz(6)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(6)
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@index([pullRequestId])
+  @@index([status])
+  @@index([conclusion])
+}
+
+model Commit {
+  id              String      @id @default(cuid())
+  githubId        String?     @unique
+  pullRequestId   String
+  oid             String
+  messageHeadline String
+  messageBody     String?
+  authorName      String?
+  authorEmail     String?
+  committedAt     DateTime?   @db.Timestamptz(6)
+  url             String?
+  createdAt       DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(6)
+  pullRequest     PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, oid])
+  @@index([pullRequestId])
+}
+
+model MergeConflict {
+  id            String      @id @default(cuid())
+  pullRequestId String
+  path          String
+  status        String      @default("detected")
+  oursSnippet   String?
+  theirsSnippet String?
+  resolvedAt    DateTime?   @db.Timestamptz(6)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(6)
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, path])
+  @@index([pullRequestId])
+}
+
+model Explanation {
+  id               String       @id @default(cuid())
+  userId           String?
+  pullRequestId    String?
+  targetType       String
+  targetId         String?
+  question         String?
+  summary          String
+  explanation      String
+  model            String
+  promptTokens     Int?
+  completionTokens Int?
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  user             User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pullRequest      PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  embedding        Embedding?
+
+  @@index([userId])
+  @@index([pullRequestId])
+  @@index([targetType])
+}
+
+model Embedding {
+  id            String                       @id @default(cuid())
+  explanationId String                       @unique
+  content       String
+  embedding     Unsupported("vector(1536)")?
+  createdAt     DateTime                     @default(now()) @db.Timestamptz(6)
+  explanation   Explanation                  @relation(fields: [explanationId], references: [id], onDelete: Cascade)
+}

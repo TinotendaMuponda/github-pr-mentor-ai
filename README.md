@@ -47,3 +47,33 @@ Every feature should answer four questions:
 2. What file owns the behavior?
 3. How do we know it works?
 4. What secret, permission, or external API risk does it introduce?
+
+## Lesson 2: Database Foundation
+
+This checkpoint adds local Postgres, Prisma, and pgvector.
+
+Read the lesson notes:
+
+```txt
+docs/lessons/02-database-foundation.md
+```
+
+The short version:
+
+```bash
+npm run db:up
+npm run db:migrate -- --name init
+npm run db:generate
+npm run dev
+curl http://localhost:3000/api/health
+```
+
+## Lesson 3: AI and RAG Workflow
+
+This checkpoint explains the AI vocabulary and the retrieve-then-generate workflow we will use later.
+
+Read the lesson notes:
+
+```txt
+docs/lessons/03-ai-rag-workflow.md
+```

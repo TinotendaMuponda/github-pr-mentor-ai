@@ -36,9 +36,12 @@ export default function Home() {
           conflicts in plain English.
         </p>
         <div className="actions" aria-label="Current setup status">
-          <span>Next.js</span>
-          <span>TypeScript</span>
-          <span>Learning-first build</span>
+          <a className="primary-action" href="/api/auth/github/start">
+            Sign in with GitHub
+          </a>
+          <a className="secondary-action" href="/api/auth/me">
+            Check session JSON
+          </a>
         </div>
       </section>
 

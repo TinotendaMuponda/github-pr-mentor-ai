@@ -2,6 +2,14 @@
 
 A learning-first Next.js app that will connect to GitHub and explain pull request comments, failed checks, commits, and conflicts.
 
+## Architecture
+
+Read the system diagrams:
+
+```txt
+docs/architecture.md
+```
+
 ## Lesson 1: Project Foundation
 
 This checkpoint creates the smallest real app shell:
@@ -76,4 +84,14 @@ Read the lesson notes:
 
 ```txt
 docs/lessons/03-ai-rag-workflow.md
+```
+
+## Lesson 4: GitHub OAuth
+
+This checkpoint adds the sign-in foundation.
+
+Read the lesson notes:
+
+```txt
+docs/lessons/04-github-oauth.md
 ```

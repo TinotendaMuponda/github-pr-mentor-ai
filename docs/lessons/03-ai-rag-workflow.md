@@ -244,6 +244,30 @@ Bad candidates:
 
 ## Full Workflow
 
+```mermaid
+flowchart TD
+  A[User opens a pull request] --> B[Fetch PR data from GitHub]
+  B --> C[Store exact facts in Postgres]
+  B --> D[Pick useful text]
+  D --> E[Chunk useful text]
+  E --> F[Send chunks to embedding model]
+  F --> G[Receive vectors]
+  G --> H[Store vectors in pgvector]
+
+  I[User asks for an explanation] --> J[Embed the question]
+  J --> K[Search pgvector for similar context]
+  K --> L[Retrieve relevant chunks]
+  C --> M[Fetch exact PR facts]
+  L --> N[Build grounded prompt]
+  M --> N
+  N --> O[Send prompt to OpenAI]
+  O --> P[Generate explanation]
+  P --> Q[Show answer in UI]
+  P --> R[Save explanation in Postgres]
+  R --> S[Optionally embed explanation]
+  S --> H
+```
+
 ```txt
 1. User opens a pull request.
 2. App fetches PR data from GitHub.
@@ -258,6 +282,226 @@ Bad candidates:
 11. OpenAI generates an explanation.
 12. App stores the explanation and may embed it for future retrieval.
 ```
+
+## Indexing Workflow
+
+Indexing prepares the app memory before the user asks a question.
+
+```mermaid
+flowchart LR
+  A[PR comments] --> D[Useful text chunks]
+  B[Failed checks] --> D
+  C[Commits and conflicts] --> D
+  D --> E[Embedding model]
+  E --> F[Vectors]
+  F --> G[(pgvector)]
+  D --> H[(Postgres facts)]
+```
+
+## Answer Workflow
+
+Answering retrieves useful memory, then asks the model to explain from evidence.
+
+```mermaid
+flowchart LR
+  A[User question] --> B[Embed question]
+  B --> C[Search pgvector]
+  C --> D[Relevant chunks]
+  E[Exact PR records from Postgres] --> F[Grounded prompt]
+  D --> F
+  F --> G[OpenAI model]
+  G --> H[Explanation]
+  H --> I[User sees answer]
+  H --> J[Save for reuse]
+```
+
+## Tangible Example
+
+Imagine this pull request:
+
+```txt
+Repo: github-pr-mentor-ai
+PR #12: Add GitHub OAuth callback
+Author: Tinotenda
+Changed file: app/api/auth/github/callback/route.ts
+Failed check: auth-callback.test.ts
+Error: Expected status 200, received 401
+Review comment: "This callback should validate state before exchanging the code."
+```
+
+### 1. User Opens A PR
+
+The user opens PR #12 in the app.
+
+```txt
+/github-pr-mentor-ai/pulls/12
+```
+
+### 2. App Fetches PR Data From GitHub
+
+The app asks GitHub GraphQL for PR title, author, comments, changed files, commits, failed checks, and review threads.
+
+Example data:
+
+```json
+{
+  "title": "Add GitHub OAuth callback",
+  "comments": [
+    "This callback should validate state before exchanging the code."
+  ],
+  "checkRuns": [
+    {
+      "name": "auth-callback.test.ts",
+      "conclusion": "FAILURE",
+      "summary": "Expected status 200, received 401"
+    }
+  ],
+  "files": [
+    "app/api/auth/github/callback/route.ts"
+  ]
+}
+```
+
+### 3. App Stores Facts In Postgres
+
+Exact facts go into normal relational tables.
+
+Example `PullRequest` row:
+
+```txt
+number: 12
+title: Add GitHub OAuth callback
+state: OPEN
+repository: github-pr-mentor-ai
+```
+
+Example `CheckRun` row:
+
+```txt
+name: auth-callback.test.ts
+conclusion: FAILURE
+summary: Expected status 200, received 401
+```
+
+Example `PullRequestComment` row:
+
+```txt
+body: This callback should validate state before exchanging the code.
+path: app/api/auth/github/callback/route.ts
+```
+
+### 4. App Chunks Useful Text
+
+Instead of embedding the whole PR blindly, the app creates focused chunks.
+
+```txt
+Chunk 1:
+Failed check auth-callback.test.ts: Expected status 200, received 401.
+
+Chunk 2:
+Review comment on app/api/auth/github/callback/route.ts:
+This callback should validate state before exchanging the code.
+
+Chunk 3:
+PR title: Add GitHub OAuth callback.
+Changed file: app/api/auth/github/callback/route.ts.
+```
+
+### 5. App Sends Chunks To An Embedding Model
+
+The app sends each text chunk to the embedding model.
+
+```ts
+await openai.embeddings.create({
+  model: "text-embedding-3-small",
+  input: "Failed check auth-callback.test.ts: Expected status 200, received 401."
+});
+```
+
+### 6. Embedding Model Returns Vectors
+
+The embedding model returns a vector, which is a list of numbers representing meaning.
+
+```txt
+[0.018, -0.203, 0.774, ...]
+```
+
+### 7. App Stores Vectors In pgvector
+
+The app stores the original text, the vector, and enough metadata to connect it back to the PR.
+
+```txt
+content: Failed check auth-callback.test.ts: Expected status 200, received 401.
+embedding: [0.018, -0.203, 0.774, ...]
+metadata: check_run, PR #12, repo github-pr-mentor-ai
+```
+
+### 8. User Asks A Question
+
+The user asks:
+
+```txt
+Why is this PR failing?
+```
+
+### 9. App Searches Similar Context
+
+The app embeds the user question, searches pgvector, and retrieves the most relevant chunks.
+
+```txt
+Failed check: Expected status 200, received 401.
+Review comment: validate state before exchanging the code.
+Changed file: app/api/auth/github/callback/route.ts.
+```
+
+### 10. App Sends A Grounded Prompt To OpenAI
+
+The app builds a prompt with the question plus retrieved evidence.
+
+```txt
+You are explaining a GitHub PR to a junior developer.
+
+Question:
+Why is this PR failing?
+
+Relevant PR context:
+- PR #12: Add GitHub OAuth callback
+- Changed file: app/api/auth/github/callback/route.ts
+- Failed check: auth-callback.test.ts
+- Error: Expected status 200, received 401
+- Review comment: This callback should validate state before exchanging the code.
+
+Explain:
+1. What likely failed
+2. Why it matters
+3. Where to look
+4. What to try next
+```
+
+### 11. OpenAI Generates An Explanation
+
+The model can now answer from evidence instead of guessing.
+
+```txt
+The failing test expected the OAuth callback to succeed with status 200, but it received 401, which usually means the request was rejected as unauthorized.
+
+In this PR, the review comment mentions validating the OAuth state before exchanging the code. That is likely connected. If the callback does not correctly validate or preserve the state value, the app may reject the request before completing login.
+
+Start by checking app/api/auth/github/callback/route.ts. Look for where the route reads the state parameter, compares it with the stored session or cookie value, and handles invalid state. Also confirm the test is setting up the expected state value before calling the callback.
+```
+
+### 12. App Stores The Explanation
+
+The app saves the explanation for history, cost tracking, and future retrieval.
+
+```txt
+targetType: check_run
+summary: OAuth callback test returns 401 instead of 200.
+explanation: The route likely rejects the request because state validation is missing or mismatched.
+model: gpt-...
+```
+
+The app may also embed this explanation, so a future PR with a similar OAuth failure can retrieve it.
 
 ## Best Practices
 

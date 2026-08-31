@@ -52,7 +52,7 @@ export function RepositoryList() {
     status: "loading"
   });
 
-  async function requestRepositories() {
+  async function requestRepositories(): Promise<RepositoriesResponse> {
     const response = await fetch("/api/github/repositories?first=10", {
       cache: "no-store"
     });
@@ -119,11 +119,19 @@ export function RepositoryList() {
 
   if (fetchState.status === "loading") {
     return (
-      <section className="repo-section" aria-labelledby="repo-list-title">
+      <section
+        className="repo-section"
+        aria-busy="true"
+        aria-labelledby="repo-list-title"
+      >
         <RepositoryListHeader onRefresh={refreshRepositories} />
-        <div className="repo-grid" aria-label="Loading repositories">
+        <div
+          className="repo-grid"
+          aria-label="Loading repositories"
+          aria-live="polite"
+        >
           {Array.from({ length: 4 }).map((_, index) => (
-            <div className="repo-skeleton" key={index}>
+            <div className="repo-skeleton" key={index} aria-hidden="true">
               <span />
               <span />
               <span />
@@ -138,7 +146,7 @@ export function RepositoryList() {
     return (
       <section className="repo-section" aria-labelledby="repo-list-title">
         <RepositoryListHeader onRefresh={refreshRepositories} />
-        <div className="repo-status error-status">
+        <div className="repo-status error-status" role="alert">
           <strong>Repository sync failed</strong>
           <p>{fetchState.message}</p>
           <button
@@ -162,11 +170,16 @@ export function RepositoryList() {
       <div className="repo-meta" aria-label="GitHub API rate limit">
         <span>GraphQL cost {fetchState.data.rateLimit.cost}</span>
         <span>{fetchState.data.rateLimit.remaining} requests remaining</span>
-        <span>Resets {formatDate(fetchState.data.rateLimit.resetAt)}</span>
+        <span>
+          Resets{" "}
+          <time dateTime={fetchState.data.rateLimit.resetAt}>
+            {formatDate(fetchState.data.rateLimit.resetAt)}
+          </time>
+        </span>
       </div>
 
       {repositories.length === 0 ? (
-        <div className="repo-status">
+        <div className="repo-status" aria-live="polite">
           <strong>No repositories returned</strong>
           <p>
             GitHub returned an empty repository list for this token and request.
@@ -187,12 +200,21 @@ export function RepositoryList() {
               </div>
 
               <div className="repo-stats">
-                <span>Updated {formatDate(repository.updatedAt)}</span>
+                <span>
+                  Updated{" "}
+                  <time dateTime={repository.updatedAt}>
+                    {formatDate(repository.updatedAt)}
+                  </time>
+                </span>
                 <span>{repository.pullRequests.nodes.length} open PRs</span>
               </div>
 
               <div className="repo-card-actions">
-                <a className="secondary-action" href={repository.url}>
+                <a
+                  className="secondary-action"
+                  href={repository.url}
+                  aria-label={`Open ${repository.nameWithOwner} on GitHub`}
+                >
                   Open GitHub
                 </a>
               </div>

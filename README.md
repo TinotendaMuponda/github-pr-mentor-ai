@@ -95,3 +95,13 @@ Read the lesson notes:
 ```txt
 docs/lessons/04-github-oauth.md
 ```
+
+## Lesson 5: GitHub GraphQL Foundation
+
+This checkpoint uses the stored GitHub OAuth token to query GitHub's GraphQL API.
+
+Read the lesson notes:
+
+```txt
+docs/lessons/05-github-graphql.md
+```

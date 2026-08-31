@@ -18,6 +18,14 @@ export default async function DashboardPage() {
           account record in Postgres. Next we will use the encrypted GitHub token
           to read pull request data through GitHub GraphQL.
         </p>
+        <div className="actions" aria-label="GitHub GraphQL test links">
+          <a className="secondary-action" href="/api/github/viewer">
+            View GitHub viewer JSON
+          </a>
+          <a className="secondary-action" href="/api/github/repositories">
+            View repositories JSON
+          </a>
+        </div>
         <form action="/api/auth/logout" method="post">
           <button className="primary-action" type="submit">
             Sign out

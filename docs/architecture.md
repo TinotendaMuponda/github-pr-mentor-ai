@@ -38,11 +38,14 @@ flowchart LR
   Browser[Browser] --> Home[app/page.tsx]
   Browser --> Health[app/api/health/route.ts]
   Browser --> Auth[app/api/auth routes]
+  Browser --> GitHubAPI[app/api/github routes]
   Browser --> Dashboard[app/dashboard/page.tsx]
   Health --> Prisma[lib/prisma.ts]
   Auth --> Prisma
+  GitHubAPI --> Prisma
   Dashboard --> Prisma
   Auth --> GitHub[GitHub OAuth]
+  GitHubAPI --> GitHubGraphQL[GitHub GraphQL API]
   Prisma --> Database[(Local Postgres)]
   Database --> Vector[pgvector enabled]
 ```
@@ -67,6 +70,15 @@ returns the current signed-in user or logged-out state.
 
 POST /api/auth/logout
 deletes the current app session.
+
+GET /api/github/viewer
+uses the stored GitHub token to fetch the authenticated GitHub viewer.
+
+GET /api/github/repositories
+uses the stored GitHub token to fetch recent owner repositories.
+
+GET /api/github/pull-request?owner=OWNER&repo=REPO&number=NUMBER
+fetches a PR overview from GitHub and stores the first comments and commits.
 ```
 
 ## Future Architecture

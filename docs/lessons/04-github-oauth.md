@@ -273,7 +273,7 @@ TOKEN_ENCRYPTION_KEY=""
 GITHUB_CLIENT_ID=""
 GITHUB_CLIENT_SECRET=""
 GITHUB_OAUTH_REDIRECT_URI="http://localhost:3000/api/auth/github/callback"
-GITHUB_OAUTH_SCOPES="read:user user:email"
+GITHUB_OAUTH_SCOPES="read:user user:email public_repo"
 ```
 
 Generate local secrets:
@@ -306,10 +306,10 @@ After GitHub creates the app, copy the Client ID and Client Secret into `.env`.
 This lesson starts with:
 
 ```txt
-read:user user:email
+read:user user:email public_repo
 ```
 
-That is enough to identify the user and read verified email addresses. Later, repository access choices matter:
+That is enough to identify the user, read verified email addresses, and access public repository data for PR learning. Later, repository access choices matter:
 
 ```txt
 public_repo

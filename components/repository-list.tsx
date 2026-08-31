@@ -41,27 +41,37 @@ type FetchState =
   | { status: "error"; message: string }
   | { status: "success"; data: RepositoriesResponse };
 
+const dateFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
+
 export function RepositoryList() {
   const [fetchState, setFetchState] = useState<FetchState>({
     status: "loading"
   });
 
-  async function loadRepositories() {
+  async function requestRepositories() {
+    const response = await fetch("/api/github/repositories?first=10", {
+      cache: "no-store"
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Could not load repositories.");
+    }
+
+    return payload as RepositoriesResponse;
+  }
+
+  async function refreshRepositories() {
     setFetchState({ status: "loading" });
 
     try {
-      const response = await fetch("/api/github/repositories?first=10", {
-        cache: "no-store"
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Could not load repositories.");
-      }
-
       setFetchState({
         status: "success",
-        data: payload as RepositoriesResponse
+        data: await requestRepositories()
       });
     } catch (error) {
       setFetchState({
@@ -75,14 +85,51 @@ export function RepositoryList() {
   }
 
   useEffect(() => {
-    void loadRepositories();
+    let shouldIgnoreResponse = false;
+
+    async function loadInitialRepositories() {
+      try {
+        const data = await requestRepositories();
+
+        if (!shouldIgnoreResponse) {
+          setFetchState({
+            status: "success",
+            data
+          });
+        }
+      } catch (error) {
+        if (!shouldIgnoreResponse) {
+          setFetchState({
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Could not load repositories."
+          });
+        }
+      }
+    }
+
+    void loadInitialRepositories();
+
+    return () => {
+      shouldIgnoreResponse = true;
+    };
   }, []);
 
   if (fetchState.status === "loading") {
     return (
       <section className="repo-section" aria-labelledby="repo-list-title">
-        <RepositoryListHeader />
-        <div className="repo-status">Loading repositories...</div>
+        <RepositoryListHeader onRefresh={refreshRepositories} />
+        <div className="repo-grid" aria-label="Loading repositories">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div className="repo-skeleton" key={index}>
+              <span />
+              <span />
+              <span />
+            </div>
+          ))}
+        </div>
       </section>
     );
   }
@@ -90,11 +137,16 @@ export function RepositoryList() {
   if (fetchState.status === "error") {
     return (
       <section className="repo-section" aria-labelledby="repo-list-title">
-        <RepositoryListHeader />
+        <RepositoryListHeader onRefresh={refreshRepositories} />
         <div className="repo-status error-status">
+          <strong>Repository sync failed</strong>
           <p>{fetchState.message}</p>
-          <button className="secondary-action" type="button" onClick={loadRepositories}>
-            Retry
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={refreshRepositories}
+          >
+            Retry request
           </button>
         </div>
       </section>
@@ -105,15 +157,21 @@ export function RepositoryList() {
 
   return (
     <section className="repo-section" aria-labelledby="repo-list-title">
-      <RepositoryListHeader />
+      <RepositoryListHeader onRefresh={refreshRepositories} />
 
-      <div className="repo-meta">
-        <span>Request cost: {fetchState.data.rateLimit.cost}</span>
-        <span>Remaining: {fetchState.data.rateLimit.remaining}</span>
+      <div className="repo-meta" aria-label="GitHub API rate limit">
+        <span>GraphQL cost {fetchState.data.rateLimit.cost}</span>
+        <span>{fetchState.data.rateLimit.remaining} requests remaining</span>
+        <span>Resets {formatDate(fetchState.data.rateLimit.resetAt)}</span>
       </div>
 
       {repositories.length === 0 ? (
-        <div className="repo-status">No repositories were returned.</div>
+        <div className="repo-status">
+          <strong>No repositories returned</strong>
+          <p>
+            GitHub returned an empty repository list for this token and request.
+          </p>
+        </div>
       ) : (
         <div className="repo-grid">
           {repositories.map((repository) => (
@@ -128,28 +186,18 @@ export function RepositoryList() {
                 </span>
               </div>
 
+              <div className="repo-stats">
+                <span>Updated {formatDate(repository.updatedAt)}</span>
+                <span>{repository.pullRequests.nodes.length} open PRs</span>
+              </div>
+
               <div className="repo-card-actions">
                 <a className="secondary-action" href={repository.url}>
-                  Open on GitHub
+                  Open GitHub
                 </a>
               </div>
 
-              <div className="repo-pr-list">
-                <p className="repo-pr-label">Open pull requests</p>
-                {repository.pullRequests.nodes.length === 0 ? (
-                  <p className="repo-empty">No open pull requests.</p>
-                ) : (
-                  <ul>
-                    {repository.pullRequests.nodes.map((pullRequest) => (
-                      <li key={pullRequest.id}>
-                        <a href={pullRequest.url}>
-                          #{pullRequest.number} {pullRequest.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <PullRequestList repository={repository} />
             </article>
           ))}
         </div>
@@ -158,16 +206,62 @@ export function RepositoryList() {
   );
 }
 
-function RepositoryListHeader() {
+function RepositoryListHeader({ onRefresh }: { onRefresh: () => void }) {
   return (
     <div className="repo-section-header">
       <div>
-        <p className="section-label">Lesson 6 · Repository picker</p>
-        <h2 id="repo-list-title">Your GitHub repositories</h2>
+        <p className="section-label">Repository picker</p>
+        <h2 id="repo-list-title">Repositories</h2>
       </div>
-      <a className="secondary-action" href="/api/github/repositories">
-        View JSON
-      </a>
+      <div className="repo-toolbar">
+        <button className="secondary-action" type="button" onClick={onRefresh}>
+          Refresh
+        </button>
+        <a className="secondary-action" href="/api/github/repositories">
+          View JSON
+        </a>
+      </div>
     </div>
   );
+}
+
+function PullRequestList({ repository }: { repository: RepositorySummary }) {
+  if (repository.pullRequests.nodes.length === 0) {
+    return (
+      <div className="repo-pr-list">
+        <p className="repo-pr-label">Open pull requests</p>
+        <p className="repo-empty">No open pull requests.</p>
+      </div>
+    );
+  }
+
+  const [owner, repo] = repository.nameWithOwner.split("/");
+
+  return (
+    <div className="repo-pr-list">
+      <p className="repo-pr-label">Open pull requests</p>
+      <ul>
+        {repository.pullRequests.nodes.map((pullRequest) => (
+          <li key={pullRequest.id}>
+            <a href={pullRequest.url}>
+              <span>#{pullRequest.number}</span>
+              {pullRequest.title}
+            </a>
+            <a
+              className="pr-json-link"
+              href={`/api/github/pull-request?owner=${encodeURIComponent(
+                owner
+              )}&repo=${encodeURIComponent(repo)}&number=${pullRequest.number}`}
+            >
+              Inspect JSON
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  return dateFormatter.format(new Date(value));
 }

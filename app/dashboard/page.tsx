@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { RepositoryList } from "@/components/repository-list";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -32,6 +33,8 @@ export default async function DashboardPage() {
           </button>
         </form>
       </section>
+
+      <RepositoryList />
     </main>
   );
 }

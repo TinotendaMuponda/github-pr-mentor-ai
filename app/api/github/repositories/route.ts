@@ -29,6 +29,8 @@ export async function GET(request: Request) {
       REPOSITORIES_QUERY,
       { first }
     );
+
+    // Validate the GitHub response before the app trusts it.
     const data = repositoriesResponseSchema.parse(response);
 
     return Response.json(data, {

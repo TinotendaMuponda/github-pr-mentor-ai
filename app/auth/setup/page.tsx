@@ -1,3 +1,5 @@
+import { AppFooter, AppHeader } from "@/components/app-chrome";
+
 const requiredValues = [
   "GITHUB_CLIENT_ID",
   "GITHUB_CLIENT_SECRET",
@@ -6,39 +8,50 @@ const requiredValues = [
 
 export default function AuthSetupPage() {
   return (
-    <main className="shell compact-shell">
-      <section className="intro compact-intro" aria-labelledby="setup-title">
-        <div className="eyebrow">GitHub OAuth setup</div>
-        <h1 id="setup-title">Finish your GitHub app settings</h1>
-        <p>
-          The sign-in route is working, but it needs real GitHub OAuth
-          credentials before it can redirect to GitHub.
-        </p>
-        <div className="setup-panel">
-          <h2>Required local values</h2>
-          <ul>
-            {requiredValues.map((value) => (
-              <li key={value}>{value}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="setup-panel">
-          <h2>Use these GitHub settings</h2>
-          <dl>
+    <>
+      <AppHeader actionHref="/" actionLabel="Back home" />
+      <main className="page-shell narrow-shell">
+        <section className="setup-hero" aria-labelledby="setup-title">
+          <p className="eyebrow">GitHub OAuth setup</p>
+          <h1 id="setup-title">Connect the local app to GitHub</h1>
+          <p>
+            The sign-in route is ready. Add the OAuth credentials below so
+            localhost can redirect through GitHub and return to this app.
+          </p>
+        </section>
+
+        <section className="setup-grid" aria-label="OAuth setup details">
+          <article className="setup-panel">
             <div>
-              <dt>Homepage URL</dt>
-              <dd>http://localhost:3000</dd>
+              <p className="section-label">Environment</p>
+              <h2>Required local values</h2>
             </div>
+            <ul className="code-list">
+              {requiredValues.map((value) => (
+                <li key={value}>{value}</li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="setup-panel">
             <div>
-              <dt>Authorization callback URL</dt>
-              <dd>http://localhost:3000/api/auth/github/callback</dd>
+              <p className="section-label">GitHub OAuth App</p>
+              <h2>Callback settings</h2>
             </div>
-          </dl>
-        </div>
-        <a className="secondary-action" href="/">
-          Back to home
-        </a>
-      </section>
-    </main>
+            <dl className="settings-list">
+              <div>
+                <dt>Homepage URL</dt>
+                <dd>http://localhost:3000</dd>
+              </div>
+              <div>
+                <dt>Authorization callback URL</dt>
+                <dd>http://localhost:3000/api/auth/github/callback</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+      </main>
+      <AppFooter />
+    </>
   );
 }

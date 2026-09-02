@@ -1,10 +1,10 @@
 import { getCurrentUser } from "@/lib/auth/session";
-import { runGitHubGraphQL } from "@/lib/github/client";
-import { PULL_REQUEST_OVERVIEW_QUERY } from "@/lib/github/queries";
+import {
+  getPullRequestOverviewForUser,
+  PullRequestNotFoundError
+} from "@/lib/github/pull-request-overview";
 import { parsePullRequestParams } from "@/lib/github/request";
-import { pullRequestOverviewResponseSchema } from "@/lib/github/schemas";
-import { syncPullRequestOverview } from "@/lib/github/sync-pull-request";
-import { getGitHubAccessTokenForUser, GitHubTokenError } from "@/lib/github/token";
+import { GitHubTokenError } from "@/lib/github/token";
 
 export const runtime = "nodejs";
 
@@ -32,34 +32,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const accessToken = await getGitHubAccessTokenForUser(user.id);
-    const response = await runGitHubGraphQL<unknown>(
-      accessToken,
-      PULL_REQUEST_OVERVIEW_QUERY,
-      params
-    );
-    const data = pullRequestOverviewResponseSchema.parse(response);
-
-    if (!data.repository?.pullRequest) {
-      return Response.json(
-        {
-          error: "Pull request not found or not accessible with this token."
-        },
-        { status: 404 }
-      );
-    }
-
-    const sync = await syncPullRequestOverview(
-      data.repository,
-      data.repository.pullRequest
-    );
+    const data = await getPullRequestOverviewForUser(user.id, params);
 
     return Response.json(
       {
         repository: data.repository,
-        pullRequest: data.repository.pullRequest,
-        files: data.repository.pullRequest.files.nodes,
-        sync,
+        pullRequest: data.pullRequest,
+        files: data.files,
+        sync: data.sync,
         rateLimit: data.rateLimit
       },
       {
@@ -75,6 +55,15 @@ export async function GET(request: Request) {
 
 function handleGitHubRouteError(error: unknown) {
   if (error instanceof GitHubTokenError) {
+    return Response.json(
+      {
+        error: error.message
+      },
+      { status: error.status }
+    );
+  }
+
+  if (error instanceof PullRequestNotFoundError) {
     return Response.json(
       {
         error: error.message

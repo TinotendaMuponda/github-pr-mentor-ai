@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type PullRequestSummary = {
@@ -269,6 +270,20 @@ function PullRequestList({ repository }: { repository: RepositorySummary }) {
               <span>#{pullRequest.number}</span>
               {pullRequest.title}
             </a>
+            <a
+              className="pr-json-link"
+              href={pullRequest.url}
+            >
+              Open GitHub PR
+            </a>
+            <Link
+              className="pr-json-link"
+              href={`/dashboard/${encodeURIComponent(owner)}/${encodeURIComponent(
+                repo
+              )}/pull/${pullRequest.number}`}
+            >
+              Review in app
+            </Link>
             <a
               className="pr-json-link"
               href={`/api/github/pull-request?owner=${encodeURIComponent(
